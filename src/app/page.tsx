@@ -1,101 +1,246 @@
-import Image from "next/image";
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Task, Priority } from '@/types/task'
+import { 
+  CalendarIcon, 
+  FlagIcon, 
+  PlusCircleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationCircleIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState<Priority>(Priority.MEDIUM)
+  const [dueDate, setDueDate] = useState('')
+  const [filter, setFilter] = useState<Priority | 'all'>('all')
+  const [isFormVisible, setIsFormVisible] = useState(false)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const storedTasks = localStorage.getItem('tasks')
+    if (storedTasks) {
+      setTasks(JSON.parse(storedTasks))
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks))
+    checkDueDates()
+  }, [tasks])
+
+  const checkDueDates = () => {
+    tasks.forEach(task => {
+      if (!task.completed) {
+        const timeUntilDue = new Date(task.dueDate).getTime() - new Date().getTime()
+        if (timeUntilDue > 0 && timeUntilDue <= 24 * 60 * 60 * 1000) {
+          new Notification('¡Tarea por vencer!', {
+            body: `La tarea "${task.title}" vence pronto.`
+          })
+        }
+      }
+    })
+  }
+
+  const addTask = (e: React.FormEvent) => {
+    e.preventDefault()
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title,
+      description,
+      priority,
+      dueDate,
+      completed: false
+    }
+    setTasks([...tasks, newTask])
+    setTitle('')
+    setDescription('')
+    setPriority(Priority.MEDIUM)
+    setDueDate('')
+  }
+
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? {...task, completed: !task.completed} : task
+    ))
+  }
+
+  const getPriorityIcon = (priority: Priority) => {
+    switch(priority) {
+      case Priority.HIGH:
+        return <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
+      case Priority.MEDIUM:
+        return <FlagIcon className="w-5 h-5 text-yellow-500" />
+      case Priority.LOW:
+        return <ClockIcon className="w-5 h-5 text-green-500" />
+    }
+  }
+
+  const filteredTasks = tasks.filter(task => 
+    filter === 'all' ? true : task.priority === filter
+  )
+
+  return (
+    <main className="min-h-screen p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header Section */}
+        <div className="glass-effect rounded-2xl p-8 mb-8 shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Organizador de Tareas
+              </h1>
+              <p className="text-gray-600 mt-2">Organiza tus tareas por prioridad</p>
+            </div>
+            <button
+              onClick={() => setIsFormVisible(!isFormVisible)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg"
+            >
+              <PlusCircleIcon className="w-5 h-5" />
+              Nueva Tarea
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 mt-8">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-5 py-2.5 rounded-xl transition-all ${
+                filter === 'all' 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-md' 
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Todas
+            </button>
+            {Object.values(Priority).map(p => (
+              <button
+                key={p}
+                onClick={() => setFilter(p)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all ${
+                  filter === p 
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-md' 
+                    : 'bg-white hover:bg-gray-50'
+                }`}
+              >
+                {getPriorityIcon(p)}
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+        {/* Form */}
+        {isFormVisible && (
+          <div className="fade-in">
+            <form onSubmit={addTask} className="glass-effect p-8 rounded-2xl shadow-lg mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Título</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50"
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Descripción</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Prioridad</label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as Priority)}
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50"
+                  >
+                    <option value={Priority.HIGH}>Alta</option>
+                    <option value={Priority.MEDIUM}>Media</option>
+                    <option value={Priority.LOW}>Baja</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Fecha límite</label>
+                  <input
+                    type="datetime-local"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsFormVisible(false)}
+                  className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg"
+                >
+                  Guardar Tarea
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Tasks Grid */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredTasks
+            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+            .map(task => (
+              <div
+                key={task.id}
+                className={`task-card glass-effect p-6 rounded-2xl ${
+                  task.completed ? 'opacity-75' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className={`font-bold text-lg ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                    {task.title}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {getPriorityIcon(task.priority)}
+                    <button
+                      onClick={() => toggleTask(task.id)}
+                      className={`transition-colors ${
+                        task.completed 
+                          ? 'text-gray-400 hover:text-gray-600' 
+                          : 'text-blue-500 hover:text-blue-600'
+                      }`}
+                    >
+                      {task.completed ? 
+                        <XCircleIcon className="w-6 h-6" /> : 
+                        <CheckCircleIcon className="w-6 h-6" />
+                      }
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">{task.description}</p>
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-white/50 p-2 rounded-lg">
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>{new Date(task.dueDate).toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </main>
+  )
 }
